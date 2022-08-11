@@ -1,0 +1,14 @@
+*.pyc
+*.log
+*.orig
+*.o
+build/
+docs/
+log/
+.idea/
+__pycache__/
+.pytest_cache/
+.coverage
+projects/DeepDemosaic/
+tools/Pipeline/
+core/
