@@ -15,8 +15,8 @@
     "train_loader": {
         "type": "ADE20K",
         "args":{
-            "data_dir": "/fastData/Results/Tal/acne_holistic/ADE20K_dataset/ADEChallengeData2016",
-            "batch_size": 2,
+            "data_dir": "/fastData/Results/Tal/acne_holistic/ADE20K_dataset/ADEChallengeData2016/sample",
+            "batch_size": 4,
             "base_size": 400,
             "crop_size": 360,
             "augment": true,
@@ -26,19 +26,19 @@
             "rotate": true,
             "blur": false,
             "split": "training",
-            "num_workers": 8
+            "num_workers": 2
         }
     },
 
     "val_loader": {
         "type": "ADE20K",
         "args":{
-            "data_dir": "/fastData/Results/Tal/acne_holistic/ADE20K_dataset/ADEChallengeData2016",
-            "batch_size": 2,
+            "data_dir": "/fastData/Results/Tal/acne_holistic/ADE20K_dataset/ADEChallengeData2016/sample",
+            "batch_size": 1,
             "crop_size": 360,
             "val": true,
             "split": "validation",
-            "num_workers": 4
+            "num_workers": 1
         }
     },
 
@@ -60,18 +60,18 @@
     },
 
     "trainer": {
-        "epochs": 80,
-        "save_dir": "saved/",
-        "save_period": 10,
+        "epochs": 100,
+        "save_dir": "/fastData/Results/Tal/acne_holistic/output",
+        "save_period": 2,
   
         "monitor": "max Mean_IoU",
-        "early_stop": 10,
+        "early_stop": 20,
         
         "tensorboard": true,
-        "log_dir": "saved/runs",
+        "log_dir": "/fastData/Results/Tal/acne_holistic/output/runs",
         "log_per_iter": 1,
 
         "val": true,
-        "val_per_epochs": 1
+        "val_per_epochs": 2
     }
 }

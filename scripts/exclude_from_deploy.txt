@@ -9,6 +9,3 @@ log/
 __pycache__/
 .pytest_cache/
 .coverage
-projects/DeepDemosaic/
-tools/Pipeline/
-core/
