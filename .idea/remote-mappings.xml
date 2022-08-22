@@ -10,6 +10,13 @@
             </list>
           </settings>
         </remote-mappings>
+        <remote-mappings server-id="python@sshConfig://tal@shamus.local:6160 agent/python.sh">
+          <settings>
+            <list>
+              <mapping local-root="/" remote-root="/host_root" />
+            </list>
+          </settings>
+        </remote-mappings>
       </list>
     </list>
   </component>
