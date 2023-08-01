@@ -1,3 +1,9 @@
-*.idea
+.idea
 venv*
 __pycache__/
+*.iml
+*.pt
+*.pth
+*/segformer_outputs/
+*checkpoint*
+*sensors*
