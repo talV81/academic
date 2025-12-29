@@ -776,9 +776,8 @@ class SimpleTrainer(TrainerBase):
 
         results = self.evaluator.evaluate()
 
-        for k, v in results.items():
-            tag = f"{split}/{k}"
-            self.write_scalar(tag, v, self.epoch)
+        # Don't log to TensorBoard here - this is for final evaluation only
+        # Validation during training is logged by _evaluate_and_log()
 
         return list(results.values())[0]
 

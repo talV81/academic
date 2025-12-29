@@ -49,7 +49,7 @@
         "TRAINER.COOP.CLASS_TOKEN_POSITION", "end",
         "DATASET.NUM_SHOTS", "-1",
         "TEST.FINAL_MODEL", "best_val",
-        "TRAIN.RESUME_FROM_CHECKPOINT", "False"
+        "TRAIN.RESUME_FROM_CHECKPOINT", "True"
       ],
       "console": "integratedTerminal",
       "justMyCode": false
@@ -76,7 +76,7 @@
         "TRAINER.COOP.CLASS_TOKEN_POSITION", "end",
         "DATASET.NUM_SHOTS", "-1",
         "TEST.FINAL_MODEL", "best_val",
-        "TRAIN.RESUME_FROM_CHECKPOINT", "False"
+        "TRAIN.RESUME_FROM_CHECKPOINT", "True"
       ],
       "console": "integratedTerminal",
       "justMyCode": false
@@ -106,6 +106,50 @@
         "TRAINER.COOP.CLASS_TOKEN_POSITION", "end",
         "DATASET.NUM_SHOTS", "-1",
         "TEST.COMPUTE_CMAT", "True"
+      ],
+      "console": "integratedTerminal",
+      "justMyCode": false
+    },
+    {
+      "name": "Python Debugger: Evaluate hair_length (Detailed)",
+      "type": "debugpy",
+      "request": "launch",
+      "program": "${workspaceFolder}/CoOp-main/evaluate.py",
+      "python": "/python.sh",
+      "cwd": "${workspaceFolder}/CoOp-main",
+      "env": {
+        "PYTHONPATH": "${workspaceFolder}/Dassl:${workspaceFolder}/CoOp-main"
+      },
+      "args": [
+        "--model-dir", "/home/tal/Private/hair_analysis/few_shot/training/coop/hair_length",
+        "--eval-output-dir", "/home/tal/Private/hair_analysis/few_shot/training/coop/hair_length/evaluation",
+        "--config-file", "configs/trainers/CoOp/vit_b16_ep50.yaml",
+        "--dataset-config-file", "configs/datasets/hair_length.yaml",
+        "--trainer", "CoOp",
+        "--root", "/home/tal/Private/hair_analysis/few_shot/data",
+        "--save-wrong-classifications"
+      ],
+      "console": "integratedTerminal",
+      "justMyCode": false
+    },
+    {
+      "name": "Python Debugger: Evaluate hair_frizz (Detailed)",
+      "type": "debugpy",
+      "request": "launch",
+      "program": "${workspaceFolder}/CoOp-main/evaluate.py",
+      "python": "/python.sh",
+      "cwd": "${workspaceFolder}/CoOp-main",
+      "env": {
+        "PYTHONPATH": "${workspaceFolder}/Dassl:${workspaceFolder}/CoOp-main"
+      },
+      "args": [
+        "--model-dir", "output/hair_frizz/CoOp/vit_b16_ep50_full/nctx16_cscFalse_ctpend/all_data/prompt_learner",
+        "--eval-output-dir", "output/evaluation/hair_frizz/CoOp/vit_b16_ep50_full/nctx16_cscFalse_ctpend/all_data",
+        "--config-file", "configs/trainers/CoOp/vit_b16_ep50.yaml",
+        "--dataset-config-file", "configs/datasets/hair_frizz.yaml",
+        "--trainer", "CoOp",
+        "--root", "/home/tal/Private/hair_analysis/few_shot/data",
+        "--save-wrong-classifications"
       ],
       "console": "integratedTerminal",
       "justMyCode": false
