@@ -1,4 +1,5 @@
 .idea
+.python_libs
 venv*
 __pycache__/
 *.iml

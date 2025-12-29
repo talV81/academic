@@ -1,0 +1,123 @@
+{
+  // Run the currently active file in the editor
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "Python Debugger: train_hair_length (16-shot)",
+      "type": "debugpy",
+      "request": "launch",
+      "program": "${workspaceFolder}/CoOp-main/train.py",
+      "python": "/python.sh",
+      "cwd": "${workspaceFolder}/CoOp-main",
+      "env": {
+        "PYTHONPATH": "${workspaceFolder}/Dassl:${workspaceFolder}/CoOp-main"
+      },
+      "args": [
+        "--root", "/home/tal/Private/hair_analysis/few_shot/data",
+        "--seed", "1",
+        "--trainer", "CoOp",
+        "--dataset-config-file", "configs/datasets/hair_length.yaml",
+        "--config-file", "configs/trainers/CoOp/vit_b16_ep50.yaml",
+        "--output-dir", "output/hair_length/CoOp/vit_b16_ep50_16shots/nctx16_cscFalse_ctpend/seed1",
+        "TRAINER.COOP.N_CTX", "16",
+        "TRAINER.COOP.CSC", "False",
+        "TRAINER.COOP.CLASS_TOKEN_POSITION", "end",
+        "DATASET.NUM_SHOTS", "16"
+      ],
+      "console": "integratedTerminal",
+      "justMyCode": false
+    },
+    {
+      "name": "Python Debugger: train_hair_length (Full Dataset)",
+      "type": "debugpy",
+      "request": "launch",
+      "program": "${workspaceFolder}/CoOp-main/train.py",
+      "python": "/python.sh",
+      "cwd": "${workspaceFolder}/CoOp-main",
+      "env": {
+        "PYTHONPATH": "${workspaceFolder}/Dassl:${workspaceFolder}/CoOp-main"
+      },
+      "args": [
+        "--root", "/home/tal/Private/hair_analysis/few_shot/data",
+        "--seed", "1",
+        "--trainer", "CoOp",
+        "--dataset-config-file", "configs/datasets/hair_length.yaml",
+        "--config-file", "configs/trainers/CoOp/vit_b16_ep50.yaml",
+        "--output-dir", "/home/tal/Private/hair_analysis/few_shot/training/coop/hair_length",
+        "TRAINER.COOP.N_CTX", "16",
+        "TRAINER.COOP.CSC", "False",
+        "TRAINER.COOP.CLASS_TOKEN_POSITION", "end",
+        "DATASET.NUM_SHOTS", "-1",
+        "TEST.FINAL_MODEL", "best_val",
+        "TRAIN.RESUME_FROM_CHECKPOINT", "False"
+      ],
+      "console": "integratedTerminal",
+      "justMyCode": false
+    },
+    {
+      "name": "Python Debugger: train_hair_frizz (Full Dataset)",
+      "type": "debugpy",
+      "request": "launch",
+      "program": "${workspaceFolder}/CoOp-main/train.py",
+      "python": "/python.sh",
+      "cwd": "${workspaceFolder}/CoOp-main",
+      "env": {
+        "PYTHONPATH": "${workspaceFolder}/Dassl:${workspaceFolder}/CoOp-main"
+      },
+      "args": [
+        "--root", "/home/tal/Private/hair_analysis/few_shot/data",
+        "--seed", "1",
+        "--trainer", "CoOp",
+        "--dataset-config-file", "configs/datasets/hair_frizz.yaml",
+        "--config-file", "configs/trainers/CoOp/vit_b16_ep50.yaml",
+        "--output-dir", "output/hair_frizz/CoOp/vit_b16_ep50_full/nctx16_cscFalse_ctpend/all_data",
+        "TRAINER.COOP.N_CTX", "16",
+        "TRAINER.COOP.CSC", "False",
+        "TRAINER.COOP.CLASS_TOKEN_POSITION", "end",
+        "DATASET.NUM_SHOTS", "-1",
+        "TEST.FINAL_MODEL", "best_val",
+        "TRAIN.RESUME_FROM_CHECKPOINT", "False"
+      ],
+      "console": "integratedTerminal",
+      "justMyCode": false
+    },
+    {
+      "name": "Python Debugger: eval_hair_length (16-shot)",
+      "type": "debugpy",
+      "request": "launch",
+      "program": "${workspaceFolder}/CoOp-main/train.py",
+      "python": "/python.sh",
+      "cwd": "${workspaceFolder}/CoOp-main",
+      "env": {
+        "PYTHONPATH": "${workspaceFolder}/Dassl:${workspaceFolder}/CoOp-main"
+      },
+      "args": [
+        "--root", "/home/tal/Private/hair_analysis/few_shot/data",
+        "--seed", "1",
+        "--trainer", "CoOp",
+        "--dataset-config-file", "configs/datasets/hair_length.yaml",
+        "--config-file", "configs/trainers/CoOp/vit_b16_ep50.yaml",
+        "--output-dir", "output/evaluation/hair_length/CoOp/vit_b16_ep50_full/nctx16_cscFalse_ctpend/all_data",
+        "--model-dir", "output/hair_length/CoOp/vit_b16_ep50_full/nctx16_cscFalse_ctpend/all_data",
+        "--load-epoch", "50",
+        "--eval-only",
+        "TRAINER.COOP.N_CTX", "16",
+        "TRAINER.COOP.CSC", "False",
+        "TRAINER.COOP.CLASS_TOKEN_POSITION", "end",
+        "DATASET.NUM_SHOTS", "-1",
+        "TEST.COMPUTE_CMAT", "True"
+      ],
+      "console": "integratedTerminal",
+      "justMyCode": false
+    },
+    {
+      "name": "Python Debugger: Current File",
+      "type": "debugpy",
+      "request": "launch",
+      "program": "${file}",
+      "python": "/opt/venv/bin/python",
+      "console": "integratedTerminal",
+      "justMyCode": true
+    }
+  ]
+}

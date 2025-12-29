@@ -1,0 +1,30 @@
+Loading trainer: CLIP_Adapter
+Loading dataset: LengthDemo
+Building transform_train
++ random resized crop (size=(224, 224), scale=(0.08, 1.0))
++ random flip
++ to torch tensor of range [0, 1]
++ normalization (mean=[0.48145466, 0.4578275, 0.40821073], std=[0.26862954, 0.26130258, 0.27577711])
+Building transform_test
++ resize the smaller edge to 224
++ 224x224 center crop
++ to torch tensor of range [0, 1]
++ normalization (mean=[0.48145466, 0.4578275, 0.40821073], std=[0.26862954, 0.26130258, 0.27577711])
+---------  ----------
+Dataset    LengthDemo
+# classes  3
+# train_x  90
+# test     60
+---------  ----------
+Loading CLIP (backbone: ViT-B/16)
+Building custom CLIP
+Turning off gradients in both the image and the text encoder
+Loading evaluator: Classification
+Loading weights to clip_adapter from "/home/tal/Private/academic/Dassl.pytorch-master/output/clip_adapter/clip_adapter/model-best.pth.tar" (epoch = 60)
+Evaluate on the *test* set
+=> result
+* total: 60
+* correct: 26
+* accuracy: 43.3%
+* error: 56.7%
+* macro_f1: 41.4%

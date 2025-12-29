@@ -1,0 +1,32 @@
+TRAINER:
+  NAME: CLIP_Adapter
+
+DATASET:
+  NAME: LengthDemo  # must match CUSTOM_TEMPLATES key
+  ROOT: /home/tal/Private/hair_analysis/few_shot/hair_length
+  TRAIN_DIR: val
+  TEST_DIR: val
+
+INPUT:
+  SIZE: (224, 224)
+  TRANSFORMS: ['random_resized_crop', 'random_flip', 'normalize']
+  PIXEL_MEAN: [0.48145466, 0.4578275, 0.40821073]
+  PIXEL_STD: [0.26862954, 0.26130258, 0.27577711]
+
+MODEL:
+  BACKBONE:
+    NAME: ViT-B/16
+  INIT_WEIGHTS: ""  # path to adapter weights if resuming
+
+OPTIM:
+  NAME: sgd
+  LR: 0.0005
+  MAX_EPOCH: 60
+  STEPSIZE: (40,)
+
+DATALOADER:
+  TRAIN_X:
+    BATCH_SIZE: 16
+  TEST:
+    BATCH_SIZE: 32
+
