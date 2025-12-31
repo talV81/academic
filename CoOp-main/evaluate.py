@@ -80,10 +80,18 @@ def setup_cfg(args):
     cfg = get_cfg_default()
     extend_cfg(cfg)
     
-    if args.dataset_config_file:
-        cfg.merge_from_file(args.dataset_config_file)
-    if args.config_file:
-        cfg.merge_from_file(args.config_file)
+    # Check if config exists in model directory (from training)
+    import os.path as osp
+    model_config_file = osp.join(osp.dirname(args.model_dir), "config.yaml")
+    if osp.exists(model_config_file) and not args.ignore_trained_config:
+        print(f"Loading config from trained model: {model_config_file}")
+        cfg.merge_from_file(model_config_file)
+    else:
+        # Fallback to provided config files
+        if args.dataset_config_file:
+            cfg.merge_from_file(args.dataset_config_file)
+        if args.config_file:
+            cfg.merge_from_file(args.config_file)
     
     reset_cfg(cfg, args)
     cfg.merge_from_list(args.opts)
@@ -92,9 +100,14 @@ def setup_cfg(args):
     return cfg
 
 
-def plot_confusion_matrix(cm, cm_normalized, class_names, output_dir):
+def plot_confusion_matrix(cm, cm_normalized, class_names, output_dir, accuracy, threshold=None):
     """Plot and save confusion matrix."""
     fig, axes = plt.subplots(1, 2, figsize=(20, 8))
+    
+    # Create title with accuracy
+    title_suffix = f" (Threshold: {threshold:.2f})" if threshold else ""
+    suptitle = f'Overall Accuracy: {accuracy:.2%}{title_suffix}'
+    fig.suptitle(suptitle, fontsize=16, fontweight='bold', y=0.98)
     
     # Normalized confusion matrix
     sns.heatmap(cm_normalized * 100, annot=True, fmt='.1f', cmap='Blues',
@@ -114,8 +127,10 @@ def plot_confusion_matrix(cm, cm_normalized, class_names, output_dir):
     axes[1].set_ylabel('True Label', fontsize=12)
     axes[1].tick_params(axis='both', which='major', labelsize=10)
     
-    plt.tight_layout()
-    save_path = os.path.join(output_dir, 'confusion_matrix.png')
+    plt.tight_layout(rect=[0, 0, 1, 0.96])
+    
+    filename = f'confusion_matrix_threshold_{threshold:.2f}.png' if threshold else 'confusion_matrix.png'
+    save_path = os.path.join(output_dir, filename)
     plt.savefig(save_path, dpi=300, bbox_inches='tight')
     plt.close()
     print(f"Confusion matrix saved to {save_path}")
@@ -181,6 +196,32 @@ def plot_confidence_histogram(all_preds, all_labels, all_probs, output_dir):
     print(f"  Incorrect Predictions Mean: {confidences_incorrect.mean():.4f} ± {confidences_incorrect.std():.4f}")
 
 
+def plot_precision_recall_per_class(precision, recall, f1, class_names, output_dir):
+    """Plot precision, recall, and F1 scores per class."""
+    x = np.arange(len(class_names))
+    width = 0.25
+    
+    fig, ax = plt.subplots(figsize=(12, 6))
+    ax.bar(x - width, precision, width, label='Precision', alpha=0.8, color='steelblue')
+    ax.bar(x, recall, width, label='Recall', alpha=0.8, color='orange')
+    ax.bar(x + width, f1, width, label='F1-Score', alpha=0.8, color='green')
+    
+    ax.set_xlabel('Class', fontsize=12, fontweight='bold')
+    ax.set_ylabel('Score', fontsize=12, fontweight='bold')
+    ax.set_title('Precision, Recall, and F1-Score per Class', fontsize=14, fontweight='bold')
+    ax.set_xticks(x)
+    ax.set_xticklabels(class_names, rotation=45, ha='right')
+    ax.legend()
+    ax.grid(axis='y', alpha=0.3)
+    ax.set_ylim([0, 1.0])
+    
+    plt.tight_layout()
+    save_path = os.path.join(output_dir, 'precision_recall_per_class.png')
+    plt.savefig(save_path, dpi=300, bbox_inches='tight')
+    plt.close()
+    print(f"Precision-Recall per class plot saved to {save_path}")
+
+
 def save_wrong_classification(img_path, true_label, pred_label, confidence, output_path):
     """Save image with prediction annotations."""
     img = Image.open(img_path).convert('RGB')
@@ -211,33 +252,55 @@ def save_wrong_classification(img_path, true_label, pred_label, confidence, outp
     new_img.save(output_path)
 
 
-def evaluate_model(args):
-    """Main evaluation function."""
-    cfg = setup_cfg(args)
-    if cfg.SEED >= 0:
-        set_random_seed(cfg.SEED)
+def compute_metrics_with_threshold(all_preds, all_labels, all_probs, confidence_threshold):
+    """Compute metrics for predictions above confidence threshold."""
+    confidences = np.max(all_probs, axis=1)
+    threshold_mask = confidences >= confidence_threshold
     
-    # Create output directory
-    os.makedirs(args.eval_output_dir, exist_ok=True)
+    if threshold_mask.sum() == 0:
+        return None, 0
     
-    print(f"Trainer: {cfg.TRAINER.NAME}")
-    print(f"Evaluating model from: {args.model_dir}")
-    print(f"Output directory: {args.eval_output_dir}")
+    filtered_preds = all_preds[threshold_mask]
+    filtered_labels = all_labels[threshold_mask]
+    filtered_probs = all_probs[threshold_mask]
     
-    # Build trainer and load model
-    trainer = build_trainer(cfg)
-    trainer.load_model(args.model_dir, epoch=args.load_epoch)
-    trainer.set_model_mode("eval")
+    accuracy = accuracy_score(filtered_labels, filtered_preds)
+    precision, recall, f1, support = precision_recall_fscore_support(
+        filtered_labels, filtered_preds, average=None, zero_division=0
+    )
+    precision_macro, recall_macro, f1_macro, _ = precision_recall_fscore_support(
+        filtered_labels, filtered_preds, average='macro', zero_division=0
+    )
+    cm = confusion_matrix(filtered_labels, filtered_preds)
+    cm_normalized = confusion_matrix(filtered_labels, filtered_preds, normalize='true')
     
-    # Get test loader and class names
-    test_loader = trainer.test_loader
-    lab2cname = trainer.dm.lab2cname
-    class_names = [lab2cname[i] for i in sorted(lab2cname.keys())]
-    num_classes = len(class_names)
+    return {
+        'accuracy': accuracy,
+        'precision': precision,
+        'recall': recall,
+        'f1': f1,
+        'support': support,
+        'precision_macro': precision_macro,
+        'recall_macro': recall_macro,
+        'f1_macro': f1_macro,
+        'confusion_matrix': cm,
+        'confusion_matrix_normalized': cm_normalized,
+        'n_samples': threshold_mask.sum(),
+        'filtered_preds': filtered_preds,
+        'filtered_labels': filtered_labels,
+        'filtered_probs': filtered_probs
+    }, threshold_mask.sum()
+
+
+def evaluate_split(trainer, data_loader, class_names, num_classes, split_name, output_dir, args):
+    """Evaluate on a specific data split."""
+    print(f"\n{'='*80}")
+    print(f"Evaluating on {split_name.upper()} set...")
+    print(f"{'='*80}")
     
-    print(f"\nEvaluating on test set...")
-    print(f"Number of classes: {num_classes}")
-    print(f"Class names: {class_names}")
+    # Create split-specific output directory
+    split_output_dir = os.path.join(output_dir, split_name)
+    os.makedirs(split_output_dir, exist_ok=True)
     
     # Collect predictions
     all_preds = []
@@ -246,7 +309,7 @@ def evaluate_model(args):
     all_image_paths = []
     
     with torch.no_grad():
-        for batch in tqdm(test_loader, desc="Evaluating"):
+        for batch in tqdm(data_loader, desc=f"Evaluating {split_name}"):
             images = batch["img"].to(trainer.device)
             labels = batch["label"].to(trainer.device)
             image_paths = batch["impath"]
@@ -265,9 +328,9 @@ def evaluate_model(args):
     all_probs = np.array(all_probs)
     
     # Compute metrics
-    print("\n" + "="*80)
-    print("EVALUATION RESULTS")
-    print("="*80)
+    print(f"\n{'='*80}")
+    print(f"EVALUATION RESULTS - {split_name.upper()}")
+    print(f"{'='*80}")
     
     accuracy = accuracy_score(all_labels, all_preds)
     print(f"\nOverall Accuracy: {accuracy:.4f} ({accuracy*100:.2f}%)")
@@ -316,10 +379,13 @@ def evaluate_model(args):
     print(cm)
     
     # Save confusion matrix
-    plot_confusion_matrix(cm, cm_normalized, class_names, args.eval_output_dir)
+    plot_confusion_matrix(cm, cm_normalized, class_names, split_output_dir, accuracy)
+    
+    # Plot precision-recall per class
+    plot_precision_recall_per_class(precision, recall, f1, class_names, split_output_dir)
     
     # Plot confidence histogram
-    plot_confidence_histogram(all_preds, all_labels, all_probs, args.eval_output_dir)
+    plot_confidence_histogram(all_preds, all_labels, all_probs, split_output_dir)
     
     # Compute confidence statistics
     confidences = np.max(all_probs, axis=1)
@@ -348,15 +414,81 @@ def evaluate_model(args):
         }
     }
     
-    results_file = os.path.join(args.eval_output_dir, 'evaluation_results.json')
+    results_file = os.path.join(split_output_dir, 'evaluation_results.json')
     with open(results_file, 'w') as f:
         json.dump(results, f, indent=2)
     print(f"\nResults saved to {results_file}")
     
+    # Evaluate with confidence threshold if provided
+    if args.confidence_threshold is not None and args.confidence_threshold > 0:
+        print(f"\n{'='*80}")
+        print(f"EVALUATION WITH CONFIDENCE THRESHOLD: {args.confidence_threshold}")
+        print(f"{'='*80}")
+        
+        threshold_metrics, n_samples = compute_metrics_with_threshold(
+            all_preds, all_labels, all_probs, args.confidence_threshold
+        )
+        
+        if threshold_metrics is None or n_samples == 0:
+            print(f"No predictions above confidence threshold {args.confidence_threshold}")
+        else:
+            print(f"\nFiltered samples: {n_samples} / {len(all_preds)} ({n_samples/len(all_preds)*100:.1f}%)")
+            print(f"Accuracy (threshold {args.confidence_threshold}): {threshold_metrics['accuracy']:.4f} ({threshold_metrics['accuracy']*100:.2f}%)")
+            print(f"\nMacro-averaged metrics (threshold {args.confidence_threshold}):")
+            print(f"  Precision: {threshold_metrics['precision_macro']:.4f}")
+            print(f"  Recall:    {threshold_metrics['recall_macro']:.4f}")
+            print(f"  F1-Score:  {threshold_metrics['f1_macro']:.4f}")
+            
+            # Per-class results with threshold
+            print(f"\nPer-class metrics (threshold {args.confidence_threshold}):")
+            print(f"{'Class':<20} {'Precision':>10} {'Recall':>10} {'F1-Score':>10} {'Support':>10}")
+            print("-" * 72)
+            
+            for i in range(num_classes):
+                if i < len(threshold_metrics['precision']):
+                    print(f"{class_names[i]:<20} {threshold_metrics['precision'][i]:>10.4f} "
+                          f"{threshold_metrics['recall'][i]:>10.4f} {threshold_metrics['f1'][i]:>10.4f} "
+                          f"{threshold_metrics['support'][i]:>10}")
+            
+            # Save threshold confusion matrix
+            plot_confusion_matrix(
+                threshold_metrics['confusion_matrix'],
+                threshold_metrics['confusion_matrix_normalized'],
+                class_names,
+                split_output_dir,
+                threshold_metrics['accuracy'],
+                threshold=args.confidence_threshold
+            )
+            
+            # Save threshold results to JSON
+            threshold_results = {
+                'confidence_threshold': args.confidence_threshold,
+                'n_samples_above_threshold': int(n_samples),
+                'percentage_above_threshold': float(n_samples/len(all_preds)),
+                'accuracy': float(threshold_metrics['accuracy']),
+                'macro_precision': float(threshold_metrics['precision_macro']),
+                'macro_recall': float(threshold_metrics['recall_macro']),
+                'macro_f1': float(threshold_metrics['f1_macro']),
+                'per_class_precision': threshold_metrics['precision'].tolist(),
+                'per_class_recall': threshold_metrics['recall'].tolist(),
+                'per_class_f1': threshold_metrics['f1'].tolist(),
+                'per_class_support': threshold_metrics['support'].tolist(),
+                'confusion_matrix': threshold_metrics['confusion_matrix'].tolist(),
+                'confusion_matrix_normalized': threshold_metrics['confusion_matrix_normalized'].tolist()
+            }
+            
+            threshold_results_file = os.path.join(
+                split_output_dir,
+                f'evaluation_results_threshold_{args.confidence_threshold:.2f}.json'
+            )
+            with open(threshold_results_file, 'w') as f:
+                json.dump(threshold_results, f, indent=2)
+            print(f"\nThreshold results saved to {threshold_results_file}")
+    
     # Save wrong classifications
     if args.save_wrong_classifications:
         print(f"\nSaving misclassified images...")
-        wrong_dir = os.path.join(args.eval_output_dir, 'wrong_classifications')
+        wrong_dir = os.path.join(split_output_dir, 'wrong_classifications')
         os.makedirs(wrong_dir, exist_ok=True)
         
         wrong_count = 0
@@ -389,13 +521,61 @@ def evaluate_model(args):
                     'true_label_confidence': float(prob[label])
                 })
         
-        wrong_summary_file = os.path.join(args.eval_output_dir, 'wrong_classifications_summary.json')
+        wrong_summary_file = os.path.join(split_output_dir, 'wrong_classifications_summary.json')
         with open(wrong_summary_file, 'w') as f:
             json.dump(wrong_summary, f, indent=2)
         print(f"Wrong classifications summary saved to {wrong_summary_file}")
+
+
+def evaluate_model(args):
+    """Main evaluation function."""
+    cfg = setup_cfg(args)
+    if cfg.SEED >= 0:
+        set_random_seed(cfg.SEED)
+    
+    # Create output directory
+    os.makedirs(args.eval_output_dir, exist_ok=True)
+    
+    print(f"\nTrainer: {cfg.TRAINER.NAME}")
+    print(f"N_CTX: {cfg.TRAINER.COOP.N_CTX if hasattr(cfg.TRAINER, 'COOP') else 'N/A'}")
+    print(f"CSC: {cfg.TRAINER.COOP.CSC if hasattr(cfg.TRAINER, 'COOP') else 'N/A'}")
+    print(f"Evaluating model from: {args.model_dir}")
+    print(f"Output directory: {args.eval_output_dir}")
+    
+    # Build trainer and load model
+    trainer = build_trainer(cfg)
+    trainer.load_model(args.model_dir, epoch=args.load_epoch)
+    trainer.set_model_mode("eval")
+    
+    # Get class names
+    lab2cname = trainer.dm.lab2cname
+    class_names = [lab2cname[i] for i in sorted(lab2cname.keys())]
+    num_classes = len(class_names)
+    
+    print(f"\nNumber of classes: {num_classes}")
+    print(f"Class names: {class_names}")
+    
+    # Determine which splits to evaluate
+    splits_to_evaluate = []
+    if 'val' in args.eval_split or 'both' in args.eval_split:
+        if trainer.val_loader is not None:
+            splits_to_evaluate.append(('val', trainer.val_loader))
+        else:
+            print("Warning: Validation loader not available")
+    
+    if 'test' in args.eval_split or 'both' in args.eval_split:
+        splits_to_evaluate.append(('test', trainer.test_loader))
+    
+    if not splits_to_evaluate:
+        print("Error: No valid splits to evaluate")
+        return
+    
+    # Evaluate each split
+    for split_name, data_loader in splits_to_evaluate:
+        evaluate_split(trainer, data_loader, class_names, num_classes, split_name, args.eval_output_dir, args)
     
     print("\n" + "="*80)
-    print("Evaluation complete!")
+    print("All evaluations complete!")
     print("="*80)
 
 
@@ -403,14 +583,17 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Comprehensive evaluation script for multi-class classification")
     parser.add_argument("--root", type=str, default="", help="path to dataset")
     parser.add_argument("--eval-output-dir", type=str, required=True, help="directory to save evaluation results")
-    parser.add_argument("--model-dir", type=str, required=True, help="directory containing the model checkpoint")
+    parser.add_argument("--model-dir", type=str, required=True, help="directory containing the model checkpoint (e.g., path/to/prompt_learner)")
     parser.add_argument("--load-epoch", type=int, default=None, help="specific epoch to load (default: best model)")
     parser.add_argument("--seed", type=int, default=-1, help="random seed")
-    parser.add_argument("--config-file", type=str, default="", help="path to config file")
+    parser.add_argument("--config-file", type=str, default="", help="path to config file (optional if config.yaml exists in model dir)")
     parser.add_argument("--dataset-config-file", type=str, default="", help="path to dataset config file")
     parser.add_argument("--trainer", type=str, default="", help="name of trainer")
     parser.add_argument("--backbone", type=str, default="", help="name of CNN backbone")
+    parser.add_argument("--eval-split", type=str, nargs='+', default=['test'], help="which split(s) to evaluate: 'val', 'test', or 'both'")
     parser.add_argument("--save-wrong-classifications", action="store_true", help="save images of wrong classifications with annotations")
+    parser.add_argument("--confidence-threshold", type=float, default=None, help="confidence threshold for filtering predictions (e.g., 0.7)")
+    parser.add_argument("--ignore-trained-config", action="store_true", help="ignore config.yaml from training, use provided configs instead")
     parser.add_argument("--output-dir", type=str, default="", help="trainer output directory (for compatibility)")
     parser.add_argument("opts", default=None, nargs=argparse.REMAINDER, help="modify config options using the command-line")
     

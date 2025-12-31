@@ -133,6 +133,40 @@ def setup_cfg(args):
 
 def main(args):
     cfg = setup_cfg(args)
+    
+    # Create timestamped subdirectory if not resuming from checkpoint
+    # Check both --resume flag and TRAIN.RESUME_FROM_CHECKPOINT config
+    is_resuming = args.resume or (cfg.TRAIN.RESUME_FROM_CHECKPOINT and cfg.RESUME)
+    
+    if not args.no_train and not is_resuming:
+        from datetime import datetime
+        import os.path as osp
+        import os
+        
+        # Generate timestamp
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        
+        # Create new output directory with timestamp
+        base_output_dir = cfg.OUTPUT_DIR
+        new_output_dir = osp.join(base_output_dir, f"run_{timestamp}")
+        
+        # Update config with new output directory
+        from yacs.config import CfgNode as CN
+        cfg.defrost()
+        cfg.OUTPUT_DIR = new_output_dir
+        cfg.freeze()
+        
+        print(f"\n{'='*80}")
+        print(f"STARTING NEW TRAINING RUN")
+        print(f"{'='*80}")
+        print(f"Output directory: {new_output_dir}\n")
+    elif is_resuming:
+        print(f"\n{'='*80}")
+        print(f"RESUMING TRAINING")
+        print(f"{'='*80}")
+        print(f"Resume from: {args.resume or cfg.RESUME}")
+        print(f"Output directory: {cfg.OUTPUT_DIR}\n")
+    
     if cfg.SEED >= 0:
         print("Setting fixed seed: {}".format(cfg.SEED))
         set_random_seed(cfg.SEED)
@@ -144,6 +178,14 @@ def main(args):
     print_args(args, cfg)
     print("Collecting env info ...")
     print("** System info **\n{}\n".format(collect_env_info()))
+
+    # Save config to output directory for reproducibility
+    if not args.no_train:
+        import os.path as osp
+        cfg_file = osp.join(cfg.OUTPUT_DIR, "config.yaml")
+        with open(cfg_file, "w") as f:
+            print(cfg, file=f)
+        print(f"Config saved to {cfg_file}")
 
     trainer = build_trainer(cfg)
 

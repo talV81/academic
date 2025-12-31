@@ -43,13 +43,13 @@
         "--trainer", "CoOp",
         "--dataset-config-file", "configs/datasets/hair_length.yaml",
         "--config-file", "configs/trainers/CoOp/vit_b16_ep50.yaml",
-        "--output-dir", "/home/tal/Private/hair_analysis/few_shot/training/coop/hair_length",
-        "TRAINER.COOP.N_CTX", "16",
+        "--output-dir", "/home/tal/Private/hair_analysis/few_shot/training/coop/hair_length_ep80",
+        "TRAINER.COOP.N_CTX", "64",
         "TRAINER.COOP.CSC", "False",
         "TRAINER.COOP.CLASS_TOKEN_POSITION", "end",
         "DATASET.NUM_SHOTS", "-1",
         "TEST.FINAL_MODEL", "best_val",
-        "TRAIN.RESUME_FROM_CHECKPOINT", "True"
+        "OPTIM.MAX_EPOCH", "80"
       ],
       "console": "integratedTerminal",
       "justMyCode": false
@@ -70,42 +70,13 @@
         "--trainer", "CoOp",
         "--dataset-config-file", "configs/datasets/hair_frizz.yaml",
         "--config-file", "configs/trainers/CoOp/vit_b16_ep50.yaml",
-        "--output-dir", "output/hair_frizz/CoOp/vit_b16_ep50_full/nctx16_cscFalse_ctpend/all_data",
+        "--output-dir", "/home/tal/Private/hair_analysis/few_shot/training/coop/hair_frizz",
         "TRAINER.COOP.N_CTX", "16",
         "TRAINER.COOP.CSC", "False",
         "TRAINER.COOP.CLASS_TOKEN_POSITION", "end",
         "DATASET.NUM_SHOTS", "-1",
         "TEST.FINAL_MODEL", "best_val",
-        "TRAIN.RESUME_FROM_CHECKPOINT", "True"
-      ],
-      "console": "integratedTerminal",
-      "justMyCode": false
-    },
-    {
-      "name": "Python Debugger: eval_hair_length (16-shot)",
-      "type": "debugpy",
-      "request": "launch",
-      "program": "${workspaceFolder}/CoOp-main/train.py",
-      "python": "/python.sh",
-      "cwd": "${workspaceFolder}/CoOp-main",
-      "env": {
-        "PYTHONPATH": "${workspaceFolder}/Dassl:${workspaceFolder}/CoOp-main"
-      },
-      "args": [
-        "--root", "/home/tal/Private/hair_analysis/few_shot/data",
-        "--seed", "1",
-        "--trainer", "CoOp",
-        "--dataset-config-file", "configs/datasets/hair_length.yaml",
-        "--config-file", "configs/trainers/CoOp/vit_b16_ep50.yaml",
-        "--output-dir", "output/evaluation/hair_length/CoOp/vit_b16_ep50_full/nctx16_cscFalse_ctpend/all_data",
-        "--model-dir", "output/hair_length/CoOp/vit_b16_ep50_full/nctx16_cscFalse_ctpend/all_data",
-        "--load-epoch", "50",
-        "--eval-only",
-        "TRAINER.COOP.N_CTX", "16",
-        "TRAINER.COOP.CSC", "False",
-        "TRAINER.COOP.CLASS_TOKEN_POSITION", "end",
-        "DATASET.NUM_SHOTS", "-1",
-        "TEST.COMPUTE_CMAT", "True"
+        "OPTIM.MAX_EPOCH", "80"
       ],
       "console": "integratedTerminal",
       "justMyCode": false
@@ -121,13 +92,17 @@
         "PYTHONPATH": "${workspaceFolder}/Dassl:${workspaceFolder}/CoOp-main"
       },
       "args": [
-        "--model-dir", "/home/tal/Private/hair_analysis/few_shot/training/coop/hair_length",
-        "--eval-output-dir", "/home/tal/Private/hair_analysis/few_shot/training/coop/hair_length/evaluation",
+        "--model-dir", "/home/tal/Private/hair_analysis/few_shot/training/coop/hair_length_ep80/",
+        "--eval-output-dir", "/home/tal/Private/hair_analysis/few_shot/training/coop/hair_length_ep80/evaluation",
         "--config-file", "configs/trainers/CoOp/vit_b16_ep50.yaml",
         "--dataset-config-file", "configs/datasets/hair_length.yaml",
         "--trainer", "CoOp",
         "--root", "/home/tal/Private/hair_analysis/few_shot/data",
-        "--save-wrong-classifications"
+        "--eval-split", "both",
+        "--save-wrong-classifications",
+        "--confidence-threshold", "0.5",
+        "TRAINER.COOP.N_CTX", "64",
+        "TRAINER.COOP.CSC", "False",
       ],
       "console": "integratedTerminal",
       "justMyCode": false
