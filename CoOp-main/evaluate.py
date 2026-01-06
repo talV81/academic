@@ -38,6 +38,7 @@ import datasets.imagenet_a
 import datasets.imagenet_r
 import datasets.hair_length
 import datasets.hair_frizz
+import datasets.hair_type
 
 import trainers.coop
 import trainers.cocoop
@@ -82,8 +83,27 @@ def setup_cfg(args):
     
     # Check if config exists in model directory (from training)
     import os.path as osp
-    model_config_file = osp.join(osp.dirname(args.model_dir), "config.yaml")
-    if osp.exists(model_config_file) and not args.ignore_trained_config:
+    model_dir_abs = osp.abspath(args.model_dir)
+    model_dir_basename = osp.basename(model_dir_abs)
+    
+    # Try to find config.yaml from training
+    config_locations = []
+    if model_dir_basename in ['prompt_learner', 'model', 'checkpoint', 'checkpoints']:
+        # model-dir is a checkpoint subdirectory, go up one level
+        config_locations.append(osp.join(osp.dirname(model_dir_abs), "config.yaml"))
+    else:
+        # model-dir is likely the run directory itself
+        config_locations.append(osp.join(model_dir_abs, "config.yaml"))
+        # Also try parent directory as fallback
+        config_locations.append(osp.join(osp.dirname(model_dir_abs), "config.yaml"))
+    
+    model_config_file = None
+    for loc in config_locations:
+        if osp.exists(loc):
+            model_config_file = loc
+            break
+    
+    if model_config_file and not args.ignore_trained_config:
         print(f"Loading config from trained model: {model_config_file}")
         cfg.merge_from_file(model_config_file)
     else:
@@ -582,7 +602,7 @@ def evaluate_model(args):
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Comprehensive evaluation script for multi-class classification")
     parser.add_argument("--root", type=str, default="", help="path to dataset")
-    parser.add_argument("--eval-output-dir", type=str, required=True, help="directory to save evaluation results")
+    parser.add_argument("--eval-output-dir", type=str, default="", help="directory to save evaluation results (default: creates 'evaluation' folder in model parent directory)")
     parser.add_argument("--model-dir", type=str, required=True, help="directory containing the model checkpoint (e.g., path/to/prompt_learner)")
     parser.add_argument("--load-epoch", type=int, default=None, help="specific epoch to load (default: best model)")
     parser.add_argument("--seed", type=int, default=-1, help="random seed")
@@ -598,5 +618,23 @@ if __name__ == "__main__":
     parser.add_argument("opts", default=None, nargs=argparse.REMAINDER, help="modify config options using the command-line")
     
     args = parser.parse_args()
+    
+    # Auto-generate eval-output-dir if not provided
+    if not args.eval_output_dir:
+        import os.path as osp
+        model_dir_abs = osp.abspath(args.model_dir)
+        
+        # Check if model-dir ends with a checkpoint subdirectory (e.g., prompt_learner)
+        model_dir_basename = osp.basename(model_dir_abs)
+        if model_dir_basename in ['prompt_learner', 'model', 'checkpoint', 'checkpoints']:
+            # Go up one level to the training run directory
+            run_dir = osp.dirname(model_dir_abs)
+        else:
+            # Already at the training run directory
+            run_dir = model_dir_abs
+        
+        args.eval_output_dir = osp.join(run_dir, "evaluation")
+        print(f"No --eval-output-dir provided, using: {args.eval_output_dir}")
+    
     evaluate_model(args)
 

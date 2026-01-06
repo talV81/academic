@@ -28,6 +28,7 @@ import datasets.imagenet_a
 import datasets.imagenet_r
 import datasets.hair_length
 import datasets.hair_frizz
+import datasets.hair_type
 
 import trainers.coop
 import trainers.cocoop

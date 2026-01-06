@@ -42,7 +42,7 @@
         "--seed", "1",
         "--trainer", "CoOp",
         "--dataset-config-file", "configs/datasets/hair_length.yaml",
-        "--config-file", "configs/trainers/CoOp/vit_b16_ep50.yaml",
+        "--config-file", "configs/trainers/CoOp/vit_hair_length_best.yaml",
         "--output-dir", "/home/tal/Private/hair_analysis/few_shot/training/coop/hair_length_ep80",
         "TRAINER.COOP.N_CTX", "64",
         "TRAINER.COOP.CSC", "False",
@@ -69,14 +69,41 @@
         "--seed", "1",
         "--trainer", "CoOp",
         "--dataset-config-file", "configs/datasets/hair_frizz.yaml",
-        "--config-file", "configs/trainers/CoOp/vit_b16_ep50.yaml",
+        "--config-file", "configs/trainers/CoOp/vit_hair_frizz.yaml",
         "--output-dir", "/home/tal/Private/hair_analysis/few_shot/training/coop/hair_frizz",
         "TRAINER.COOP.N_CTX", "16",
         "TRAINER.COOP.CSC", "False",
         "TRAINER.COOP.CLASS_TOKEN_POSITION", "end",
         "DATASET.NUM_SHOTS", "-1",
         "TEST.FINAL_MODEL", "best_val",
-        "OPTIM.MAX_EPOCH", "80"
+        "OPTIM.MAX_EPOCH", "50"
+      ],
+      "console": "integratedTerminal",
+      "justMyCode": false
+    },
+    {
+      "name": "Python Debugger: train_hair_type (Full Dataset)",
+      "type": "debugpy",
+      "request": "launch",
+      "program": "${workspaceFolder}/CoOp-main/train.py",
+      "python": "/python.sh",
+      "cwd": "${workspaceFolder}/CoOp-main",
+      "env": {
+        "PYTHONPATH": "${workspaceFolder}/Dassl:${workspaceFolder}/CoOp-main"
+      },
+      "args": [
+        "--root", "/home/tal/Private/hair_analysis/few_shot/data",
+        "--seed", "1",
+        "--trainer", "CoOp",
+        "--dataset-config-file", "configs/datasets/hair_type.yaml",
+        "--config-file", "configs/trainers/CoOp/vit_hair_type.yaml",
+        "--output-dir", "/home/tal/Private/hair_analysis/few_shot/training/coop/hair_type",
+        "TRAINER.COOP.N_CTX", "32",
+        "TRAINER.COOP.CSC", "False",
+        "TRAINER.COOP.CLASS_TOKEN_POSITION", "end",
+        "DATASET.NUM_SHOTS", "-1",
+        "TEST.FINAL_MODEL", "best_val",
+        "OPTIM.MAX_EPOCH", "70"
       ],
       "console": "integratedTerminal",
       "justMyCode": false
@@ -118,13 +145,30 @@
         "PYTHONPATH": "${workspaceFolder}/Dassl:${workspaceFolder}/CoOp-main"
       },
       "args": [
-        "--model-dir", "output/hair_frizz/CoOp/vit_b16_ep50_full/nctx16_cscFalse_ctpend/all_data/prompt_learner",
-        "--eval-output-dir", "output/evaluation/hair_frizz/CoOp/vit_b16_ep50_full/nctx16_cscFalse_ctpend/all_data",
-        "--config-file", "configs/trainers/CoOp/vit_b16_ep50.yaml",
-        "--dataset-config-file", "configs/datasets/hair_frizz.yaml",
-        "--trainer", "CoOp",
+        "--model-dir", "/home/tal/Private/hair_analysis/few_shot/training/coop/hair_frizz/run_20260104_092514",
         "--root", "/home/tal/Private/hair_analysis/few_shot/data",
-        "--save-wrong-classifications"
+        "--save-wrong-classifications",
+        "--confidence-threshold", "0.5"
+      ],
+      "console": "integratedTerminal",
+      "justMyCode": false
+    },
+    {
+      "name": "Python Debugger: Evaluate hair_type (Detailed)",
+      "type": "debugpy",
+      "request": "launch",
+      "program": "${workspaceFolder}/CoOp-main/evaluate.py",
+      "python": "/python.sh",
+      "cwd": "${workspaceFolder}/CoOp-main",
+      "env": {
+        "PYTHONPATH": "${workspaceFolder}/Dassl:${workspaceFolder}/CoOp-main"
+      },
+      "args": [
+        "--model-dir", "/home/tal/Private/hair_analysis/few_shot/training/coop/hair_type/run_20260104_081012",
+        "--root", "/home/tal/Private/hair_analysis/few_shot/data",
+        "--eval-split", "both",
+        "--save-wrong-classifications",
+        "--confidence-threshold", "0.5"
       ],
       "console": "integratedTerminal",
       "justMyCode": false

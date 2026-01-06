@@ -1,4 +1,6 @@
 import os.path as osp
+import time
+import datetime
 
 import torch
 import torch.nn as nn
@@ -7,7 +9,7 @@ from torch.cuda.amp import GradScaler, autocast
 
 from dassl.engine import TRAINER_REGISTRY, TrainerX
 from dassl.metrics import compute_accuracy
-from dassl.utils import load_pretrained_weights, load_checkpoint
+from dassl.utils import load_pretrained_weights, load_checkpoint, MetricMeter, AverageMeter
 from dassl.optim import build_optimizer, build_lr_scheduler
 
 from clip import clip
@@ -218,6 +220,117 @@ class CoOp(TrainerX):
 
     def check_cfg(self, cfg):
         assert cfg.TRAINER.COOP.PREC in ["fp16", "fp32", "amp"]
+    
+    def run_epoch(self):
+        """Override run_epoch with cleaner logging."""
+        self.set_model_mode("train")
+        losses = MetricMeter()
+        batch_time = AverageMeter()
+        data_time = AverageMeter()
+        self.num_batches = len(self.train_loader_x)
+        
+        end = time.time()
+        for self.batch_idx, batch in enumerate(self.train_loader_x):
+            data_time.update(time.time() - end)
+            loss_summary = self.forward_backward(batch)
+            batch_time.update(time.time() - end)
+            losses.update(loss_summary)
+            
+            # Write to tensorboard
+            n_iter = self.epoch * self.num_batches + self.batch_idx
+            for name, meter in losses.meters.items():
+                self.write_scalar("train/" + name, meter.avg, n_iter)
+            self.write_scalar("train/lr", self.get_current_lr(), n_iter)
+            
+            end = time.time()
+        
+        # Print epoch summary
+        nb_remain = (self.max_epoch - self.epoch - 1) * self.num_batches
+        eta_seconds = batch_time.avg * nb_remain
+        eta = str(datetime.timedelta(seconds=int(eta_seconds)))
+        
+        train_loss = losses.meters['loss'].avg
+        train_acc = losses.meters['acc'].avg
+        
+        print(f"Epoch [{self.epoch + 1}/{self.max_epoch}] "
+              f"Train Loss: {train_loss:.4f} | Train Acc: {train_acc:.2f}% | "
+              f"LR: {self.get_current_lr():.4e} | ETA: {eta}")
+    
+    @torch.no_grad()
+    def test(self, split=None, quiet=False, log_to_tensorboard=False):
+        """Override test with cleaner output and optional TensorBoard logging."""
+        self.set_model_mode("eval")
+        self.evaluator.reset()
+        
+        if split is None:
+            split = self.cfg.TEST.SPLIT
+        
+        if split == "val" and self.val_loader is not None:
+            data_loader = self.val_loader
+        else:
+            if split == "val" and not quiet:
+                print(f"Warning: Validation set requested but val_loader is None. Using test set instead.")
+            split = "test"
+            data_loader = self.test_loader
+        
+        # Don't print "Evaluate on..." during training validation
+        if not quiet:
+            print(f"Evaluate on the *{split}* set")
+        
+        # Track loss during validation
+        total_loss = 0.0
+        total_samples = 0
+        
+        for batch_idx, batch in enumerate(data_loader):
+            input, label = self.parse_batch_test(batch)
+            output = self.model_inference(input)
+            
+            # Calculate loss
+            loss = F.cross_entropy(output, label)
+            total_loss += loss.item() * input.size(0)
+            total_samples += input.size(0)
+            
+            self.evaluator.process(output, label)
+        
+        results = self.evaluator.evaluate()
+        avg_loss = total_loss / total_samples
+        
+        # Log to TensorBoard if requested
+        if log_to_tensorboard:
+            self.write_scalar(f"{split}/loss", avg_loss, self.epoch)
+            for k, v in results.items():
+                tag = f"{split}/{k}"
+                self.write_scalar(tag, v, self.epoch)
+        
+        # Only print results if not quiet
+        if not quiet:
+            print(f"{split}/loss: {avg_loss:.4f}")
+            for k, v in results.items():
+                tag = f"{split}/{k}"
+                print(f"{tag}: {v:.2f}%" if isinstance(v, float) else f"{tag}: {v}")
+        
+        return list(results.values())[0]
+    
+    def after_epoch(self):
+        """Override after_epoch to add validation summary and logging."""
+        last_epoch = (self.epoch + 1) == self.max_epoch
+        do_test = not self.cfg.TEST.NO_TEST
+        meet_checkpoint_freq = ((self.epoch + 1) % self.cfg.TRAIN.CHECKPOINT_FREQ == 0 if self.cfg.TRAIN.CHECKPOINT_FREQ > 0 else False)
+        
+        if do_test and self.cfg.TEST.FINAL_MODEL == "best_val":
+            # Log validation metrics to TensorBoard
+            curr_result = self.test(split="val", quiet=True, log_to_tensorboard=True)
+            is_best = curr_result > self.best_result
+            if is_best:
+                prev_best = self.best_result
+                self.best_result = curr_result
+                self.save_model(self.epoch, self.output_dir, model_name="model-best.pth.tar")
+                print(f"Val Acc: {curr_result:.2f}% *** NEW BEST (prev: {prev_best:.2f}%) ***")
+            else:
+                print(f"Val Acc: {curr_result:.2f}% (Best: {self.best_result:.2f}%)")
+        
+        if meet_checkpoint_freq or last_epoch:
+            self.save_model(self.epoch, self.output_dir)
 
     def build_model(self):
         cfg = self.cfg
@@ -284,6 +397,13 @@ class CoOp(TrainerX):
         return loss_summary
 
     def parse_batch_train(self, batch):
+        input = batch["img"]
+        label = batch["label"]
+        input = input.to(self.device)
+        label = label.to(self.device)
+        return input, label
+    
+    def parse_batch_test(self, batch):
         input = batch["img"]
         label = batch["label"]
         input = input.to(self.device)
